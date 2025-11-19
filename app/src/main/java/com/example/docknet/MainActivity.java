@@ -1,14 +1,19 @@
 package com.example.docknet;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Context;
+import android.media.Image;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.view.animation.LinearInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -45,6 +50,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -62,6 +68,11 @@ public class MainActivity extends AppCompatActivity {
 
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
     private static final Map<String, Integer> starImageMap = new HashMap<>();
+
+    // new fields for cancellation / stale-response detection
+    private final Object connectionLock = new Object();
+    private volatile HttpURLConnection currentConnection = null;
+    private final AtomicInteger requestCounter = new AtomicInteger(0);
 
     static {
         starImageMap.put("o (blue-white) star", R.drawable.star_1);
@@ -128,6 +139,10 @@ public class MainActivity extends AppCompatActivity {
         changeToStarsList.setOnClickListener(v -> setupStarsList());
     }
 
+    private void setServerStatus(){
+
+    }
+
     private void setupSystemInfo() {
         EdgeToEdge.enable(this);
         setContentView(R.layout.system_info);
@@ -136,8 +151,7 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recycler_view);
         starImage = findViewById(R.id.star_image);
 
-        Animation RotateAnimation = AnimationUtils.loadAnimation(this, R.anim.rotate);
-        starImage.startAnimation(RotateAnimation);
+        setupImageAnimation(starImage);
 
         setupRecyclerView();
         setupListeners();
@@ -145,6 +159,14 @@ public class MainActivity extends AppCompatActivity {
         initSampleItems();
         resetAndShowMasterItems();
         setupReturn();
+    }
+
+    private static void setupImageAnimation(ImageView image){
+        ObjectAnimator animator = ObjectAnimator.ofFloat(image, "rotation", 0f, 360f);
+        animator.setDuration(13000);
+        animator.setRepeatCount(ValueAnimator.INFINITE);
+        animator.setInterpolator(new LinearInterpolator());
+        image.post(() -> animator.start());
     }
 
     private void setupStarsList() {
@@ -208,9 +230,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Cancels any ongoing HttpURLConnection (if present).
+     * Safe to call from UI thread when starting a new request.
+     */
+    private void cancelOngoingRequest() {
+        synchronized (connectionLock) {
+            if (currentConnection != null) {
+                try {
+                    currentConnection.disconnect();
+                } catch (Exception ignored) {
+                } finally {
+                    currentConnection = null;
+                }
+            }
+        }
+    }
+
     private void filterList(String name) {
+        // cancel the previous request and increment the request id so any in-flight response becomes stale
+        cancelOngoingRequest();
+        final int myRequestId = requestCounter.incrementAndGet();
+
         if (name.length() < 3) {
-            resetAndShowMasterItems();
+            // only update UI if this is still the latest request
+            if (myRequestId == requestCounter.get()) {
+                resetAndShowMasterItems();
+            }
             return;
         }
 
@@ -222,6 +268,9 @@ public class MainActivity extends AppCompatActivity {
                 List<String> systemNames = parseSystemListFromJson(jsonResponse);
 
                 runOnUiThread(() -> {
+                    // ignore if a newer request has started
+                    if (myRequestId != requestCounter.get()) return;
+
                     if (systemNames.isEmpty()) {
                         items.clear();
                         items.add("No systems found");
@@ -233,6 +282,7 @@ public class MainActivity extends AppCompatActivity {
                 });
             } catch (IOException | JSONException e) {
                 runOnUiThread(() -> {
+                    if (myRequestId != requestCounter.get()) return;
                     items.clear();
                     items.add("Error: " + e.getMessage());
                     adapter.notifyDataSetChanged();
@@ -242,6 +292,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getSystemInfo(String systemName) {
+        // optional: cancel any previous request and mark this as latest so we don't get stale updates
+        cancelOngoingRequest();
+        final int myRequestId = requestCounter.incrementAndGet();
+
         backgroundExecutor.execute(() -> {
             try {
                 String encodedName = URLEncoder.encode(systemName, StandardCharsets.UTF_8.toString());
@@ -255,6 +309,7 @@ public class MainActivity extends AppCompatActivity {
                 Integer imageResId = getStarImageResId(starType);
 
                 runOnUiThread(() -> {
+                    if (myRequestId != requestCounter.get()) return; // stale
                     result.setText(displayText);
                     if (imageResId != null) {
                         starImage.setVisibility(View.VISIBLE);
@@ -266,23 +321,43 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             } catch (IOException | JSONException e) {
-                runOnUiThread(() -> result.setText("Error fetching system details: " + e.getMessage()));
+                runOnUiThread(() -> {
+                    if (myRequestId != requestCounter.get()) return;
+                    result.setText("Error fetching system details: " + e.getMessage());
+                });
             }
         });
     }
 
+    /**
+     * Performs the HTTP GET but registers the HttpURLConnection in currentConnection
+     * so cancelOngoingRequest() can disconnect it.
+     */
     private String performApiRequest(String urlString) throws IOException {
         HttpURLConnection connection = null;
         try {
+            Log.d("LogApi", "Performing system search");
             URL url = new URL(urlString);
             connection = (HttpURLConnection) url.openConnection();
+            // expose connection so it can be disconnected from UI thread
+            synchronized (connectionLock) {
+                currentConnection = connection;
+            }
             connection.setRequestMethod("GET");
             connection.connect();
             return readStream(connection.getInputStream());
         } finally {
             if (connection != null) {
-                connection.disconnect();
+                try {
+                    connection.disconnect();
+                } catch (Exception ignored) {}
             }
+            synchronized (connectionLock) {
+                if (currentConnection == connection) {
+                    currentConnection = null;
+                }
+            }
+            Log.d("LogApi", "Finished system search");
         }
     }
 
@@ -476,6 +551,7 @@ public class MainActivity extends AppCompatActivity {
             if (entry != null) {
                 holder.starNameView.setText(entry.getKey());
                 holder.starImageView.setImageResource(entry.getValue());
+                setupImageAnimation(holder.starImageView);
             }
 
             return convertView;
