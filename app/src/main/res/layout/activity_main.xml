@@ -95,19 +95,24 @@
             />
         <LinearLayout
             android:layout_weight="2"
-            android:layout_width="0"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical">
             <View
                 android:layout_weight="2"
-                android:layout_width="0"
+                android:layout_width="match_parent"
                 android:layout_height="100dp"
-                android:background="@color/white">
+                android:background="@color/white"
+                android:id="@+id/server_status_image">
 
             </View>
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content">
+                android:id="@+id/server_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:text="Last update: "
+                android:textColor="@color/orange">
 
             </TextView>
         </LinearLayout>

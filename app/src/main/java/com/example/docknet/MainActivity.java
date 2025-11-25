@@ -3,6 +3,7 @@ package com.example.docknet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Color;
 import android.media.Image;
 import android.os.Bundle;
 import android.text.Editable;
@@ -54,9 +55,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainActivity extends AppCompatActivity {
 
-    private TextView result, title;
+    private TextView result, title, lastUpdate;
     private EditText searchList;
     private ImageView starImage;
+
+    private View statusView;
 
     private Button changeToSystemInfo, changeToStarsList;
 
@@ -69,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
     private static final Map<String, Integer> starImageMap = new HashMap<>();
 
-    // new fields for cancellation / stale-response detection
     private final Object connectionLock = new Object();
     private volatile HttpURLConnection currentConnection = null;
     private final AtomicInteger requestCounter = new AtomicInteger(0);
@@ -128,9 +130,12 @@ public class MainActivity extends AppCompatActivity {
         setupMainView();
     }
 
+
     private void setupMainView() {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        setServerStatus();
 
         changeToSystemInfo = findViewById(R.id.change_to_system_info);
         changeToSystemInfo.setOnClickListener(v -> setupSystemInfo());
@@ -140,7 +145,70 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setServerStatus(){
+        lastUpdate = findViewById(R.id.server_status_text);
+        statusView = findViewById(R.id.server_status_image);
 
+        backgroundExecutor.execute(() -> {
+            HttpURLConnection connection = null;
+            try {
+                String urlString = "https://www.edsm.net/api-status-v1/elite-server";
+                URL url = new URL(urlString);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                connection.connect();
+
+                String jsonResponse = readStream(connection.getInputStream());
+                JSONObject statusObj = new JSONObject(jsonResponse);
+
+                String lastUpdateTime = statusObj.optString("lastUpdate", "Unknown");
+                String rawState = statusObj.optString("type", "");
+                final String state = rawState.toLowerCase(Locale.ROOT);
+
+                final int color;
+                switch (state) {
+                    case "success":
+                        color = Color.parseColor("#00FF00"); // green
+                        break;
+                    case "warning":
+                        color = Color.parseColor("#FF9800"); // orange
+                        break;
+                    case "danger":
+                        color = Color.parseColor("#FF0000"); // red
+                        break;
+                    default:
+                        color = Color.parseColor("#000000");
+                        break;
+                }
+
+                runOnUiThread(() -> {
+                    if (lastUpdate != null) {
+                        lastUpdate.setText(lastUpdateTime);
+                    }
+                    if (statusView != null) {
+                        statusView.setBackgroundColor(color);
+                    }
+                });
+
+            } catch (IOException | JSONException e) {
+                Log.e("MainActivity", "Failed to fetch server status", e);
+                runOnUiThread(() -> {
+                    if (lastUpdate != null) {
+                        lastUpdate.setText("Server status unavailable");
+                    }
+                    if (statusView != null) {
+                        statusView.setBackgroundColor(Color.parseColor("#666666"));
+                    }
+                });
+            } finally {
+                if (connection != null) {
+                    try {
+                        connection.disconnect();
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
     }
 
     private void setupSystemInfo() {
@@ -230,10 +298,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Cancels any ongoing HttpURLConnection (if present).
-     * Safe to call from UI thread when starting a new request.
-     */
     private void cancelOngoingRequest() {
         synchronized (connectionLock) {
             if (currentConnection != null) {
@@ -248,12 +312,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void filterList(String name) {
-        // cancel the previous request and increment the request id so any in-flight response becomes stale
         cancelOngoingRequest();
         final int myRequestId = requestCounter.incrementAndGet();
 
         if (name.length() < 3) {
-            // only update UI if this is still the latest request
             if (myRequestId == requestCounter.get()) {
                 resetAndShowMasterItems();
             }
@@ -268,7 +330,6 @@ public class MainActivity extends AppCompatActivity {
                 List<String> systemNames = parseSystemListFromJson(jsonResponse);
 
                 runOnUiThread(() -> {
-                    // ignore if a newer request has started
                     if (myRequestId != requestCounter.get()) return;
 
                     if (systemNames.isEmpty()) {
@@ -292,7 +353,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getSystemInfo(String systemName) {
-        // optional: cancel any previous request and mark this as latest so we don't get stale updates
         cancelOngoingRequest();
         final int myRequestId = requestCounter.incrementAndGet();
 
@@ -329,10 +389,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Performs the HTTP GET but registers the HttpURLConnection in currentConnection
-     * so cancelOngoingRequest() can disconnect it.
-     */
     private String performApiRequest(String urlString) throws IOException {
         HttpURLConnection connection = null;
         try {
