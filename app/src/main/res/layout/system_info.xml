@@ -59,7 +59,6 @@
         android:layout_height="100dp"
         android:scaleType="centerInside"
         android:adjustViewBounds="true"
-
         android:contentDescription="Star type image"
         android:visibility="gone"
         app:layout_constraintBottom_toTopOf="@+id/result"
@@ -94,5 +93,16 @@
         tools:text="System info will appear here."
         android:backgroundTint="@color/dark_grey"
         android:textColor="@color/orange"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/result"
+        android:id="@+id/star_type"
+        android:text="star+turhwerjwehekwr">
+
+    </TextView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

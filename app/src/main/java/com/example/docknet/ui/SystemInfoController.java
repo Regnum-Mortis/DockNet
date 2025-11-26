@@ -19,6 +19,7 @@ import com.example.docknet.viewmodel.SystemViewModel;
 import com.example.docknet.viewmodel.SystemViewModelFactory;
 
 import java.util.ArrayList;
+import java.util.Dictionary;
 import java.util.List;
 
 public class SystemInfoController {
@@ -42,7 +43,6 @@ public class SystemInfoController {
         AnimationHelper.setupImageAnimation(starImage);
 
         adapter = new SystemAdapter((position, text) -> {
-            // hide keyboard when a system is chosen from the list
             hideKeyboard();
             fetchSystem(text);
         });
@@ -50,7 +50,6 @@ public class SystemInfoController {
         recyclerView.setAdapter(adapter);
 
         viewModel = new ViewModelProvider(activity, new SystemViewModelFactory(repository)).get(SystemViewModel.class);
-        // clear any previous selection only on the very first enter (so rotation keeps the current selection)
         if (viewModel.shouldClearSelectionOnEnter()) {
             viewModel.clearSelection();
             viewModel.markInitialized();
@@ -61,8 +60,20 @@ public class SystemInfoController {
         });
         viewModel.getSelectedSystem().observe(activity, sr -> {
             if (sr != null) {
+
+                //tutej zmiany
+
+                Dictionary<String, String> res = com.example.docknet.data.SystemParser.infoFormater(sr.info);
+
+
                 String displayText = com.example.docknet.data.SystemParser.formatSystemInfo(sr.info);
+
+                displayText += "\nDistance to Sol " + res.get("distanceToSol");
                 result.setText(displayText);
+
+
+
+
                 Integer imageResId = com.example.docknet.ui.StarImageMapper.getResId(sr.primaryStarType);
                 if (imageResId != null) {
                     starImage.setVisibility(View.VISIBLE);
@@ -71,7 +82,6 @@ public class SystemInfoController {
                     starImage.setVisibility(View.GONE);
                 }
             } else {
-                // clear UI when there's no selected system (e.g. on enter)
                 if (result != null) result.setText("");
                 if (starImage != null) starImage.setVisibility(View.GONE);
             }
@@ -100,8 +110,6 @@ public class SystemInfoController {
             @Override public void afterTextChanged(android.text.Editable s) { search(s.toString()); }
         });
 
-        // init
-        // no master items: UI starts empty
     }
 
     public void search(String name) {
@@ -117,9 +125,6 @@ public class SystemInfoController {
         if (viewModel != null) viewModel.fetchSystem(name);
     }
 
-    public void teardown() {
-        // nothing for now
-    }
 
     private void hideKeyboard() {
         View v = activity.getCurrentFocus();

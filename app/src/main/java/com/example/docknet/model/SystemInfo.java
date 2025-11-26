@@ -9,7 +9,7 @@ public class SystemInfo {
     public boolean isScoopable;
     public double x, y, z;
     public boolean coordsLocked;
-    public Map<String, String> information; // allegiance, government, faction, factionState, security, economy, secondEconomy, reserve
+    public Map<String, String> information;
     public long population;
 
     public SystemInfo() {}

@@ -107,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
         // shutdown repository and cancel any network operations to avoid leaks
         systemRepository.shutdown();
         serverStatusManager.shutdown();
-        if (systemInfoController != null) systemInfoController.teardown();
+//        if (systemInfoController != null) systemInfoController.teardown();
     }
 
     @Override
@@ -151,7 +151,6 @@ public class MainActivity extends AppCompatActivity {
         systemInfoController.setup();
         setupReturn();
 
-        // navigation stack update
         pushScreen(Screen.SYSTEM_INFO);
     }
 
@@ -163,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
 
         setupReturn();
 
-        // navigation stack update
+
         pushScreen(Screen.STARS);
     }
 
@@ -191,6 +190,4 @@ public class MainActivity extends AppCompatActivity {
             v.clearFocus();
         }
     }
-
-    // search/filter logic moved into SystemInfoController
 }
