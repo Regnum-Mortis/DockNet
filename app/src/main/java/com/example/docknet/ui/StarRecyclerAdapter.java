@@ -24,7 +24,7 @@ public class StarRecyclerAdapter extends ListAdapter<Star, StarRecyclerAdapter.V
         this.listener = listener;
     }
 
-    private static final DiffUtil.ItemCallback<Star> DIFF = new DiffUtil.ItemCallback<Star>() {
+    private static final DiffUtil.ItemCallback<Star> DIFF = new DiffUtil.ItemCallback<>() {
         @Override public boolean areItemsTheSame(@NonNull Star oldItem, @NonNull Star newItem) { return oldItem.name.equals(newItem.name); }
         @Override public boolean areContentsTheSame(@NonNull Star oldItem, @NonNull Star newItem) { return oldItem.equals(newItem); }
     };
@@ -61,4 +61,3 @@ public class StarRecyclerAdapter extends ListAdapter<Star, StarRecyclerAdapter.V
         }
     }
 }
-

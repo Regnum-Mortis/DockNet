@@ -1,5 +1,6 @@
 package com.example.docknet.data;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.AssetManager;
 
@@ -27,39 +28,39 @@ public class ShipRepository {
         return list;
     }
 
+    @SuppressLint("DiscouragedApi")
     public static List<Ship> getShips(Context ctx) {
-        List<Ship> list = new ArrayList<>();
+        final List<Ship> list = new ArrayList<>();
         if (ctx == null) return getShips();
         try {
-            AssetManager am = ctx.getAssets();
-            InputStream is = am.open("ships.json");
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line);
-            br.close();
-            JSONArray arr = new JSONArray(sb.toString());
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject bucket = arr.getJSONObject(i);
-                // each bucket has a single key: category name
-                java.util.Iterator<String> keys = bucket.keys();
-                if (!keys.hasNext()) continue;
-                String category = keys.next();
-                JSONArray shipsArr = bucket.getJSONArray(category);
-                for (int j = 0; j < shipsArr.length(); j++) {
-                    JSONObject o = shipsArr.getJSONObject(j);
-                    String name = o.optString("name", "");
-                    String desc = o.optString("description", "");
-                    String file = o.optString("file", null);
-                    Integer resId = null;
-                    if (file != null && !file.isEmpty()) {
-                        // normalize file name to resource name (lowercase, replace non-alnum with underscore, strip extension)
-                        String base = file.replaceAll("\\.[^.]*$", "");
-                        String resName = base.toLowerCase().replaceAll("[^a-z0-9_]+", "_");
-                        resId = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());
-                        if (resId == 0) resId = null;
+            final AssetManager am = ctx.getAssets();
+            try (InputStream is = am.open("ships.json");
+                 BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                final JSONArray arr = new JSONArray(sb.toString());
+                for (int i = 0; i < arr.length(); i++) {
+                    final JSONObject bucket = arr.getJSONObject(i);
+                    java.util.Iterator<String> keys = bucket.keys();
+                    if (!keys.hasNext()) continue;
+                    final String category = keys.next();
+                    final JSONArray shipsArr = bucket.getJSONArray(category);
+                    for (int j = 0; j < shipsArr.length(); j++) {
+                        final JSONObject o = shipsArr.getJSONObject(j);
+                        final String name = o.optString("name", "");
+                        final String desc = o.optString("description", "");
+                        final String file = o.optString("file", "");
+                        Integer resId = null;
+                        if (!file.isEmpty()) {
+                            // normalize file name to resource name (lowercase, replace non-alnum with underscore, strip extension)
+                            final String base = file.replaceAll("\\.[^.]*$", "");
+                            final String resName = base.toLowerCase().replaceAll("[^a-z0-9_]+", "_");
+                            int id = ctx.getResources().getIdentifier(resName, "drawable", ctx.getPackageName());
+                            if (id != 0) resId = id;
+                        }
+                        list.add(new Ship(name, desc, resId, category));
                     }
-                    list.add(new Ship(name, desc, resId, category));
                 }
             }
         } catch (Exception e) {

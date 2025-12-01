@@ -10,7 +10,6 @@ import retrofit2.http.GET;
 import retrofit2.http.Url;
 
 import java.io.IOException;
-import java.time.Duration;
 
 public class RetrofitNetworkClient implements NetworkClient {
     interface Api {
@@ -19,12 +18,10 @@ public class RetrofitNetworkClient implements NetworkClient {
     }
 
     private final Api api;
-    private final OkHttpClient client;
     private volatile Call<String> currentCall = null;
-    private final Object callLock = new Object();
 
     public RetrofitNetworkClient() {
-        client = new OkHttpClient.Builder()
+        OkHttpClient client = new OkHttpClient.Builder()
                 .callTimeout(java.time.Duration.ofSeconds(15))
                 .connectTimeout(java.time.Duration.ofSeconds(10))
                 .readTimeout(java.time.Duration.ofSeconds(15))
@@ -43,17 +40,17 @@ public class RetrofitNetworkClient implements NetworkClient {
     @Override
     public String performApiRequest(String urlString) throws IOException {
         Call<String> call = api.getRaw(urlString);
-        synchronized (callLock) {
+        synchronized (this) {
             currentCall = call;
         }
         try {
             Response<String> resp = call.execute();
             if (!resp.isSuccessful() || resp.body() == null) {
-                throw new IOException("HTTP error: " + (resp != null ? resp.code() : "-"));
+                throw new IOException("HTTP error: " + resp.code());
             }
             return resp.body();
         } finally {
-            synchronized (callLock) {
+            synchronized (this) {
                 if (currentCall == call) currentCall = null;
             }
         }
@@ -61,7 +58,7 @@ public class RetrofitNetworkClient implements NetworkClient {
 
     @Override
     public void cancelCurrentRequest() {
-        synchronized (callLock) {
+        synchronized (this) {
             if (currentCall != null && !currentCall.isCanceled()) {
                 currentCall.cancel();
                 currentCall = null;

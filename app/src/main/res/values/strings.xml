@@ -11,4 +11,5 @@
     <string name="star_image_description">Star image</string>
     <string name="search_hint">Search for a system</string>
     <string name="distance_to_sol">Select system</string>
+    <string name="ok">OK</string>
 </resources>

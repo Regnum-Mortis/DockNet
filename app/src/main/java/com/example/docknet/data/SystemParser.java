@@ -1,15 +1,14 @@
 package com.example.docknet.data;
 
 import com.example.docknet.model.SystemInfo;
+import com.example.docknet.model.SystemSummary;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Dictionary;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -99,49 +98,51 @@ public class SystemParser {
         }
     }
 
+    public static Map<String, String> infoFormatter(SystemInfo info) {
+        Map<String, String> systemMap = new HashMap<>();
 
-    public static Dictionary<String, String> infoFormater(SystemInfo info) {
-        Dictionary<String, String> systemDictionary = new Hashtable<>();
+        systemMap.put("systemName", info.name);
+        systemMap.put("starName", info.primaryStarName != null ? info.primaryStarName : "");
+        systemMap.put("starType", info.primaryStarType != null ? info.primaryStarType : "");
+        systemMap.put("isScoopable", info.isScoopable ? "Scoopable" : "");
+        systemMap.put("coordinates_x", String.valueOf(info.x));
+        systemMap.put("coordinates_y", String.valueOf(info.y));
+        systemMap.put("coordinates_z", String.valueOf(info.z));
+        systemMap.put("coordinatesLocked", info.coordsLocked ? "locked" : "");
+        systemMap.put("population", String.valueOf(info.population));
 
-        systemDictionary.put("systemName", info.name);
-        systemDictionary.put("starName", info.primaryStarName);
-        systemDictionary.put("starType", info.primaryStarType);
-        systemDictionary.put("isScoopable", info.isScoopable ? "Scoopable" : "");
-        systemDictionary.put("coordinates_x", String.valueOf(info.x));
-        systemDictionary.put("coordinates_y", String.valueOf(info.y));
-        systemDictionary.put("coordinates_z", String.valueOf(info.z));
-        systemDictionary.put("coordinatesLocked", info.coordsLocked ? "locked" : "");
-        systemDictionary.put("population", String.valueOf(info.population));
+        // Distance calculation - use simple helper for clarity
+        String distanceToSol = String.valueOf(calculateDistanceToOrigin(info.x, info.y, info.z));
+        systemMap.put("distanceToSol", distanceToSol);
 
+        systemMap.put("allegiance", info.information != null ? info.information.getOrDefault("allegiance", "") : "");
 
-        String distanceToSol = String.valueOf(calculateDistance(new double[]{0, 0, 0}, new double[]{info.x, info.y, info.z}));
-
-        systemDictionary.put("distanceToSol", distanceToSol);
-
-
-        systemDictionary.put("allegiance", info.information.get("allegiance"));
-
-        return systemDictionary;
+        return systemMap;
     }
 
-    private static double calculateDistance(double[] startingCoordinates, double[] endingCoordinates) {
-        if (startingCoordinates[0] == endingCoordinates[0] && startingCoordinates[1] == endingCoordinates[0] && startingCoordinates[2] == endingCoordinates[0]) {
-            return 0;
-        }
-
-        double x_1 = startingCoordinates[0];
-        double y_1 = startingCoordinates[1];
-        double z_1 = startingCoordinates[2];
-
-        double x_2 = endingCoordinates[0];
-        double y_2 = endingCoordinates[1];
-        double z_2 = endingCoordinates[2];
-
-
-        return Math.sqrt(
-                Math.pow(x_2 - x_1, 2) + Math.pow(y_2 - y_1, 2) + Math.pow(z_2 - z_1, 2)
+    /**
+     * Convert SystemInfo to a simple, typed summary (easier to use than a Map).
+     */
+    public static SystemSummary toSummary(SystemInfo info) {
+        if (info == null) return null;
+        double distance = calculateDistanceToOrigin(info.x, info.y, info.z);
+        String allegiance = info.information != null ? info.information.getOrDefault("allegiance", "") : "";
+        return new SystemSummary(
+                info.name,
+                info.primaryStarName != null ? info.primaryStarName : "",
+                info.primaryStarType != null ? info.primaryStarType : "",
+                info.isScoopable,
+                info.x, info.y, info.z,
+                info.coordsLocked,
+                info.population,
+                distance,
+                allegiance
         );
     }
 
+    private static double calculateDistanceToOrigin(double x, double y, double z) {
+        // Distance from origin (0,0,0) — clearer and what we need in this app
+        return Math.sqrt(x * x + y * y + z * z);
+    }
 
 }

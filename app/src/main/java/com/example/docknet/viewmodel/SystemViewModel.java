@@ -7,11 +7,10 @@ import androidx.lifecycle.ViewModel;
 import com.example.docknet.data.SystemRepository;
 import com.example.docknet.data.SystemRepository.SystemResult;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 public class SystemViewModel extends ViewModel {
     private final SystemRepository repository;
@@ -20,12 +19,12 @@ public class SystemViewModel extends ViewModel {
     private final MutableLiveData<SystemResult> selectedSystem = new MutableLiveData<>();
     private final MutableLiveData<Boolean> loading = new MutableLiveData<>(false);
     private final MutableLiveData<String> error = new MutableLiveData<>();
-    private volatile boolean initialized = false;
+    private boolean initialized = false;
 
-    // debouncer for search
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private ScheduledFuture<?> pendingSearch = null;
-    private final Object searchLock = new Object();
+    // debouncer for search (Handler on main looper is simpler for UI-triggered debounce)
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable pendingRunnable = null;
+    private static final long DEBOUNCE_MS = 300;
 
     public SystemViewModel(SystemRepository repository) {
         this.repository = repository;
@@ -40,19 +39,18 @@ public class SystemViewModel extends ViewModel {
      * Schedule a search with debounce (defaults to 300ms). Cancel previous scheduled search.
      */
     public void search(final String query) {
-        synchronized (searchLock) {
-            if (pendingSearch != null && !pendingSearch.isDone()) {
-                pendingSearch.cancel(false);
-            }
-            // schedule search after 300ms
-            pendingSearch = scheduler.schedule(() -> doSearch(query), 300, TimeUnit.MILLISECONDS);
+        // remove previous pending runnable and post a new delayed one on the main thread
+        if (pendingRunnable != null) {
+            handler.removeCallbacks(pendingRunnable);
         }
+        pendingRunnable = () -> doSearch(query);
+        handler.postDelayed(pendingRunnable, DEBOUNCE_MS);
     }
 
     private void doSearch(String query) {
         loading.postValue(true);
         error.postValue(null);
-        repository.searchSystems(query, new SystemRepository.RepositoryCallback<List<String>>() {
+        repository.searchSystems(query, new SystemRepository.RepositoryCallback<>() {
             @Override
             public void onSuccess(List<String> result) {
                 systems.postValue(result);
@@ -71,7 +69,7 @@ public class SystemViewModel extends ViewModel {
     public void fetchSystem(String name) {
         loading.postValue(true);
         error.postValue(null);
-        repository.getSystemInfo(name, new SystemRepository.RepositoryCallback<SystemResult>() {
+        repository.getSystemInfo(name, new SystemRepository.RepositoryCallback<>() {
             @Override
             public void onSuccess(SystemResult result) {
                 selectedSystem.postValue(result);
@@ -100,14 +98,14 @@ public class SystemViewModel extends ViewModel {
     /**
      * Return true if we should clear selection on entering the screen (only the first time).
      */
-    public synchronized boolean shouldClearSelectionOnEnter() {
+    public boolean shouldClearSelectionOnEnter() {
         return !initialized;
     }
 
     /**
      * Mark the ViewModel as initialized (so subsequent enters — e.g. after rotation — won't clear selection).
      */
-    public synchronized void markInitialized() {
+    public void markInitialized() {
         initialized = true;
     }
 
@@ -116,10 +114,10 @@ public class SystemViewModel extends ViewModel {
         super.onCleared();
         repository.shutdown();
         try {
-            synchronized (searchLock) {
-                if (pendingSearch != null) pendingSearch.cancel(false);
+            if (pendingRunnable != null) {
+                handler.removeCallbacks(pendingRunnable);
+                pendingRunnable = null;
             }
-            scheduler.shutdownNow();
         } catch (Exception ignored) {}
     }
 }

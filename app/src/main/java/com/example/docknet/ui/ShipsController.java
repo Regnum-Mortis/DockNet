@@ -63,9 +63,14 @@ public class ShipsController {
         if (ship.resId != null) com.bumptech.glide.Glide.with(activity).load(ship.resId).into(img);
         else img.setImageResource(R.drawable.star_1);
 
-        new androidx.appcompat.app.AlertDialog.Builder(activity)
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(activity)
                 .setView(view)
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+                .create();
+        dialog.show();
+        android.view.View maybe = view.findViewWithTag("detail_ok");
+        if (maybe instanceof android.widget.Button) {
+            android.widget.Button ok = (android.widget.Button) maybe;
+            ok.setOnClickListener(v -> dialog.dismiss());
+        }
     }
 }

@@ -30,4 +30,16 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:textColor="@color/orange"/>
+
+    <!-- OK button inside content so its background can match dark_grey -->
+    <Button
+        android:id="@+id/detail_ok"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
+        android:background="@color/dark_grey"
+        android:text="@string/ok"
+        android:textColor="@color/orange"
+        android:tag="detail_ok" />
+
 </LinearLayout>

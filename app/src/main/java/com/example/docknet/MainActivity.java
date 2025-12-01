@@ -7,12 +7,11 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.TextView;
 
-import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.docknet.data.SystemRepository;
-import com.example.docknet.network.NetworkClient;
 import com.example.docknet.network.ServerStatusManager;
 import com.example.docknet.ui.AnimationHelper;
 import com.example.docknet.ui.SystemInfoController;
@@ -24,22 +23,21 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 
+/**
+ * Prostsza wersja MainActivity — ta sama funkcjonalność, czytelniejszy kod.
+ */
 public class MainActivity extends AppCompatActivity {
 
-    private TextView title;
+    // Zależności potrzebne w cyklu życia
+    private SystemRepository systemRepository;
+    private ServerStatusManager serverStatusManager;
 
-    private final NetworkClient networkClient = new com.example.docknet.network.RetrofitNetworkClient();
-    private final SystemRepository systemRepository = new SystemRepository(networkClient);
-    private final ServerStatusManager serverStatusManager = new ServerStatusManager(networkClient);
-    private SystemInfoController systemInfoController;
-    private ServerStatusController serverStatusController;
-    private StarsController starsController;
-
+    // Prosty stos nawigacji (top = pierwszy element)
     private enum Screen { MAIN, SYSTEM_INFO, STARS, SHIPS }
     private final Deque<Screen> navStack = new ArrayDeque<>();
 
+    // Dodaj ekran na stos tylko jeśli jest inny niż aktualny
     private void pushScreen(Screen s) {
-        // push only if different from current top
         if (navStack.isEmpty() || navStack.peek() != s) {
             navStack.push(s);
         }
@@ -48,74 +46,76 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // ensure keyboard does not resize layouts; prefer manifest but set programmatically as fallback
-        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
-        EdgeToEdge.enable(this);
-        // register back callback to handle navigation within single Activity
+
+        // Inicjalizacja "serwisów" używanych w aplikacji
+        com.example.docknet.network.NetworkClient networkClient = new com.example.docknet.network.RetrofitNetworkClient();
+        systemRepository = new SystemRepository(networkClient);
+        serverStatusManager = new ServerStatusManager(networkClient);
+
+        // Zarejestruj callback dla przycisku "wstecz" (nowe API)
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                // hide keyboard first
                 hideKeyboard();
-
                 if (navStack.size() > 1) {
-                    // pop current
                     navStack.pop();
                     Screen prev = navStack.peek();
-                    if (prev == Screen.MAIN) {
-                        setupMainView();
-                    } else if (prev == Screen.SYSTEM_INFO) {
-                        setupSystemInfo();
-                    } else if (prev == Screen.STARS) {
-                        setupStarsList();
-                    } else if (prev == Screen.SHIPS) {
-                        setupShipsList();
-                    } else {
-                        finish();
-                    }
+                    if (prev == Screen.MAIN) setupMainView();
+                    else if (prev == Screen.SYSTEM_INFO) setupSystemInfo();
+                    else if (prev == Screen.STARS) setupStarsList();
+                    else if (prev == Screen.SHIPS) setupShipsList();
+                    else finish();
                 } else {
-                    // nothing to go back to — finish activity
                     finish();
                 }
             }
         });
 
-        // restore nav stack if available (after rotation)
+        // Przywróć nawigację po rotacji, jeśli była zapisana
         if (savedInstanceState != null) {
             ArrayList<String> saved = savedInstanceState.getStringArrayList("navStack");
             if (saved != null && !saved.isEmpty()) {
                 navStack.clear();
-                // saved list has top at index 0 -> push from last to first to restore stack
+                // saved[0] = top, więc wczytujemy od końca
                 for (int i = saved.size() - 1; i >= 0; i--) {
                     try { navStack.push(Screen.valueOf(saved.get(i))); } catch (Exception ignored) {}
                 }
-                // show top
+                // Pokaż aktualny (top) ekran
                 Screen top = navStack.peek();
                 if (top == Screen.SYSTEM_INFO) setupSystemInfo();
                 else if (top == Screen.STARS) setupStarsList();
                 else if (top == Screen.SHIPS) setupShipsList();
                 else setupMainView();
-            } else {
-                setupMainView();
+                return;
             }
-        } else {
-            setupMainView();
         }
+
+        // Domyślny ekran
+        setupMainView();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // shutdown repository and cancel any network operations to avoid leaks
-        systemRepository.shutdown();
-        serverStatusManager.shutdown();
-//        if (systemInfoController != null) systemInfoController.teardown();
+        // Zamykamy zasoby
+        if (systemRepository != null) systemRepository.shutdown();
+        if (serverStatusManager != null) serverStatusManager.shutdown();
+        stopAnimations();
+    }
+
+    private void stopAnimations() {
+        // star_image may exist in current layout — try to stop animation if present
+        try {
+            android.view.View v = findViewById(R.id.star_image);
+            if (v instanceof android.widget.ImageView) {
+                com.example.docknet.ui.AnimationHelper.stopImageAnimation((android.widget.ImageView) v);
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        // save navStack order (top at index 0)
         if (!navStack.isEmpty()) {
             ArrayList<String> list = new ArrayList<>();
             for (Screen s : navStack) list.add(s.name());
@@ -123,12 +123,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ----------------- Setup widoków -----------------
+
     private void setupMainView() {
-        EdgeToEdge.enable(this);
+        stopAnimations();
         setContentView(R.layout.activity_main);
 
-        // delegate server status to controller
-        serverStatusController = new ServerStatusController(this, serverStatusManager);
+        // użyj lokalnego kontrolera — nie potrzebujemy pola
+        ServerStatusController serverStatusController = new ServerStatusController(this, serverStatusManager);
         serverStatusController.setup();
 
         Button changeToSystemInfo = findViewById(R.id.change_to_system_info);
@@ -140,49 +142,48 @@ public class MainActivity extends AppCompatActivity {
         Button changeToShipsList = findViewById(R.id.change_to_ships_list);
         changeToShipsList.setOnClickListener(v -> setupShipsList());
 
-        // navigation stack update
         pushScreen(Screen.MAIN);
     }
 
     private void setupSystemInfo() {
-        EdgeToEdge.enable(this);
+        stopAnimations();
         setContentView(R.layout.system_info);
         AnimationHelper.setupImageAnimation(findViewById(R.id.star_image));
-        // delegate detailed wiring to SystemInfoController to keep Activity slim
-        systemInfoController = new SystemInfoController(this, systemRepository);
-        systemInfoController.setup();
-        setupReturn();
 
+        SystemInfoController systemInfoController = new SystemInfoController(this, systemRepository);
+        systemInfoController.setup();
+
+        setupReturn();
         pushScreen(Screen.SYSTEM_INFO);
     }
 
     private void setupStarsList() {
-        EdgeToEdge.enable(this);
+        stopAnimations();
         setContentView(R.layout.stars_list);
-        starsController = new StarsController(this);
+        StarsController starsController = new StarsController(this);
         starsController.setup();
 
         setupReturn();
-
-
         pushScreen(Screen.STARS);
     }
 
     private void setupShipsList() {
-        EdgeToEdge.enable(this);
+        stopAnimations();
         setContentView(R.layout.ships_list);
         ShipsController controller = new ShipsController(this);
         controller.setup();
-        setupReturn();
 
+        setupReturn();
         pushScreen(Screen.SHIPS);
     }
 
+    // Kliknięcie tytułu powoduje powrót (prosty mechanizm)
     private void setupReturn() {
-        title = findViewById(R.id.title_text);
-        title.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+        TextView title = findViewById(R.id.title_text);
+        if (title != null) title.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
     }
 
+    // Schowaj klawiaturę
     private void hideKeyboard() {
         View v = getCurrentFocus();
         if (v == null) v = findViewById(android.R.id.content);

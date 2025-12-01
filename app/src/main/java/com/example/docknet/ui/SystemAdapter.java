@@ -24,7 +24,7 @@ public class SystemAdapter extends ListAdapter<String, SystemAdapter.VH> {
         this.listener = listener;
     }
 
-    private static final DiffUtil.ItemCallback<String> DIFF = new DiffUtil.ItemCallback<String>() {
+    private static final DiffUtil.ItemCallback<String> DIFF = new DiffUtil.ItemCallback<>() {
         @Override
         public boolean areItemsTheSame(@NonNull String oldItem, @NonNull String newItem) {
             return oldItem.equals(newItem);

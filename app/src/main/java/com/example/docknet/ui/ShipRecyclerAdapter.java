@@ -24,7 +24,7 @@ public class ShipRecyclerAdapter extends ListAdapter<Ship, ShipRecyclerAdapter.V
         this.listener = listener;
     }
 
-    private static final DiffUtil.ItemCallback<Ship> DIFF = new DiffUtil.ItemCallback<Ship>() {
+    private static final DiffUtil.ItemCallback<Ship> DIFF = new DiffUtil.ItemCallback<>() {
         @Override public boolean areItemsTheSame(@NonNull Ship oldItem, @NonNull Ship newItem) { return oldItem.name.equals(newItem.name); }
         @Override public boolean areContentsTheSame(@NonNull Ship oldItem, @NonNull Ship newItem) { return oldItem.equals(newItem); }
     };
@@ -55,8 +55,8 @@ public class ShipRecyclerAdapter extends ListAdapter<Ship, ShipRecyclerAdapter.V
     }
 
     public static class VH extends RecyclerView.ViewHolder {
-        ImageView image;
-        TextView name, desc;
+        final ImageView image;
+        final TextView name, desc;
         public VH(View itemView) {
             super(itemView);
             image = itemView.findViewById(R.id.ship_image);
