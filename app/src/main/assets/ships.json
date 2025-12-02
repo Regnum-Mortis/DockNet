@@ -3,7 +3,7 @@
     "Starter & Small Ships": [
       { "name": "Sidewinder Mk I", "description": "Default starter ship, versatile but weak.", "file": "sidewinder_mk1.png" },
       { "name": "Eagle Mk II", "description": "Light fighter, very agile but fragile.", "file": "eagle_mk2.png" },
-      { "name": "Imperial Eagle", "description": "Improved Eagle variant, faster and stronger.", "file": null },
+      { "name": "Imperial Eagle", "description": "Improved Eagle variant, faster and stronger.", "file": "imperial_eagle.png" },
       { "name": "Hauler", "description": "Cheap cargo hauler, good for early trading.", "file": "hauler_1.png" },
       { "name": "Adder", "description": "Affordable multi-role ship, decent for exploration and trading.", "file": "adder_1.png" }
     ]
@@ -26,7 +26,7 @@
   },
   {
     "Transport & Traders": [
-      { "name": "Type-6 Transporter", "description": "Cheap medium cargo hauler.", "file": null },
+      { "name": "Type-6 Transporter", "description": "Cheap medium cargo hauler.", "file": "type_6" },
       { "name": "Type-7 Transporter", "description": "Large cargo ship, requires medium pad.", "file": "type7_transporter_1.png" },
       { "name": "Type-9 Heavy", "description": "Massive cargo capacity, very slow.", "file": "type_9_heavy.png" },
       { "name": "Python", "description": "Versatile medium ship, excellent for trading and missions.", "file": "python_1.png" }
@@ -64,7 +64,7 @@
       { "name": "Krait Mk II", "description": "Versatile combat/trader ship, fighter bay.", "file": "krait_mk2_1.png" },
       { "name": "Krait Phantom", "description": "Exploration-focused Krait variant, excellent jump range.", "file": "krait_phantom_1.png" },
       { "name": "Anaconda", "description": "Large multi-role ship, strong in combat and exploration.", "file": "anaconda_1.png" },
-      { "name": "Fer-de-Lance", "description": "Premier combat ship, heavy firepower, PvP favorite.", "file": null },
+      { "name": "Fer-de-Lance", "description": "Premier combat ship, heavy firepower, PvP favorite.", "file": "fer_de_lance.png" },
       { "name": "Mamba", "description": "High-speed combat ship, strong firepower.", "file": "mamba_1.png" }
     ]
   }
